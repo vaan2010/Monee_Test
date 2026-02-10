@@ -8928,6 +8928,7 @@
     
     // 初始化月份圓餅圖滑動手勢
     let monthlyChartTouchStartX = null;
+    let monthlyChartTouchStartY = null;
     let monthlyChartIsSwiping = false;
     let monthlyChartCurrentTransform = 0;
     
@@ -8946,6 +8947,7 @@
     
     function handleMonthlyChartTouchStart(e) {
         monthlyChartTouchStartX = e.touches[0].clientX;
+        monthlyChartTouchStartY = e.touches[0].clientY;
         monthlyChartIsSwiping = false;
         const container = document.getElementById('monthlyChartPageContainer');
         if(container) {
@@ -8956,11 +8958,16 @@
     }
     
     function handleMonthlyChartTouchMove(e) {
-        if(!monthlyChartTouchStartX) return;
+        if(!monthlyChartTouchStartX || monthlyChartTouchStartY === null) return;
         
         const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
         const diffX = monthlyChartTouchStartX - currentX;
+        const diffY = monthlyChartTouchStartY - currentY;
         const absDiffX = Math.abs(diffX);
+        const absDiffY = Math.abs(diffY);
+        
+        if(absDiffY > absDiffX) return;
         
         if(absDiffX > 10) {
             monthlyChartIsSwiping = true;
@@ -8982,13 +8989,19 @@
     }
     
     function handleMonthlyChartTouchEnd(e) {
-        if(!monthlyChartTouchStartX || !monthlyChartIsSwiping) {
+        if(!monthlyChartTouchStartX || monthlyChartTouchStartY === null || !monthlyChartIsSwiping) {
             monthlyChartTouchStartX = null;
+            monthlyChartTouchStartY = null;
             return;
         }
         
         const currentX = e.changedTouches[0].clientX;
+        const currentY = e.changedTouches[0].clientY;
         const diffX = monthlyChartTouchStartX - currentX;
+        const diffY = monthlyChartTouchStartY - currentY;
+        monthlyChartTouchStartX = null;
+        monthlyChartTouchStartY = null;
+        if(Math.abs(diffY) > Math.abs(diffX)) return;
         const swiper = document.getElementById('monthlyChartSwiper');
         const container = document.getElementById('monthlyChartPageContainer');
         
@@ -9008,7 +9021,6 @@
             switchMonthlyChartPage(currentMonthlyChartIndex);
         }
         
-        monthlyChartTouchStartX = null;
         monthlyChartIsSwiping = false;
     }
     
