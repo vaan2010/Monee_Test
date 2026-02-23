@@ -80,7 +80,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async></script>
     
     <style>
         :root {
@@ -3048,11 +3047,6 @@
         { name: '其他', code: '' }
     ];
     
-    // Google Drive 備份：請至 Google Cloud Console 建立 OAuth 2.0 用戶端 ID，並啟用 Drive API
-    // 將您的 Client ID 填入下方（或留空使用 Firebase 專案的 Client ID）
-    const GOOGLE_DRIVE_CLIENT_ID = ''; // 例：'123456789-xxx.apps.googleusercontent.com'
-    const GOOGLE_DRIVE_FOLDER_NAME = 'Monee';
-    
     // Firebase 配置
     const FIREBASE_CONFIG = {
         apiKey: "AIzaSyAyebCTYX0SdZbO_wTKVjMyQXmGsnmSkzs",
@@ -3240,7 +3234,6 @@
         const defaultSettings = { 
             apiKey: '', fugleKey: '', geminiKey: '', usdRate: 32.5, usdtRate: 1.0, feeRate: 0.1425, chartTextColor: 'white', theme: 'dark',
             cloudBackupEnabled: false, cloudBackupInterval: 24, cloudBackupLastTime: null, cloudBackupToken: null,
-            driveAccessToken: null, driveUserEmail: null,
             pageVisibility: { 'overview': true, 'bank': true, 'stock': true, 'twstock': true, 'crypto': true },
             pageOrder: [0, 1, 2, 3, 4],
             displayCurrency: 'TWD'
@@ -6346,21 +6339,29 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="form-row" id="cloudBackupIntervalRow" style="${settings.cloudBackupEnabled ? '' : 'display: none;'}">
+                        <span class="form-label">備份頻率（小時）</span>
+                        <input type="number" id="cloudBackupInterval" class="form-input" value="${settings.cloudBackupInterval || 24}" min="1" max="168" style="text-align: right; width: 100px;" onchange="updateCloudBackupSetting()">
+                    </div>
                     <div class="form-row" style="${settings.cloudBackupEnabled ? '' : 'display: none;'}" id="cloudBackupStatusRow">
                         <span class="form-label">上次備份</span>
                         <span id="cloudBackupLastTime" style="color: var(--text-secondary);">${settings.cloudBackupLastTime ? new Date(settings.cloudBackupLastTime).toLocaleString('zh-TW') : '尚未備份'}</span>
                     </div>
                     <div class="form-row" style="margin-top: 20px;">
-                        <div id="drive-login-status" style="margin-bottom: 10px; padding: 10px; background: var(--card-bg); border-radius: 8px;">
-                            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Google Drive 備份狀態</div>
-                            <div id="drive-user-info" style="font-size: 16px; color: var(--text-primary);">未登入</div>
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">登入後將在您的 Google Drive 建立「${GOOGLE_DRIVE_FOLDER_NAME}」資料夾，每次開啟 App 會自動備份</div>
+                        <div id="firebase-login-status" style="margin-bottom: 10px; padding: 10px; background: var(--card-bg); border-radius: 8px;">
+                            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Firebase 登入狀態</div>
+                            <div id="firebase-user-info" style="font-size: 16px; color: var(--text-primary);">未登入</div>
                         </div>
-                        <button id="btn-drive-login" onclick="handleDriveLogin()" style="width: 100%; padding: 12px; background: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
-                            <i class="fab fa-google"></i> Google 登入（連結 Drive）
+                        <button id="btn-firebase-login" onclick="handleFirebaseLogin()" style="width: 100%; padding: 12px; background: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                            <i class="fab fa-google"></i> Google 登入 Firebase
                         </button>
-                        <button id="btn-drive-logout" onclick="handleDriveLogout()" style="width: 100%; padding: 12px; background: var(--color-down); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; display: none;">
+                        <button id="btn-firebase-logout" onclick="handleFirebaseLogout()" style="width: 100%; padding: 12px; background: var(--color-down); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; display: none;">
                             <i class="fas fa-sign-out-alt"></i> 登出
+                        </button>
+                    </div>
+                    <div id="firebase-backup-actions" class="form-row" style="margin-top: 10px; display: none;">
+                        <button onclick="handleFirebaseListBackups()" style="width: 100%; padding: 12px; background: var(--color-up); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 10px;">
+                            <i class="fas fa-list"></i> 查看備份列表
                         </button>
                     </div>
                     <div class="form-row" style="margin-top: 10px;">
@@ -6381,9 +6382,9 @@
         window.cloudBackupModal = modal;
         modal.style.display = 'block';
         
-        // 初始化 Google Drive UI
-        setTimeout(() => {
-            updateDriveUI();
+        // 初始化 Firebase UI
+                    setTimeout(() => {
+            updateFirebaseUI();
         }, 100);
     }
     
@@ -6398,98 +6399,65 @@
         }
     }
     
-    // Google Drive 登入/登出處理
-    async function handleDriveLogin() {
-        const clientId = GOOGLE_DRIVE_CLIENT_ID && GOOGLE_DRIVE_CLIENT_ID.trim();
-        if (!clientId) {
-            alert('請先在 index.html 中設定 GOOGLE_DRIVE_CLIENT_ID。\n\n取得方式：\n1. 前往 Google Cloud Console\n2. 建立專案或選擇現有專案\n3. 啟用「Google Drive API」\n4. 建立 OAuth 2.0 用戶端 ID（網頁應用程式）\n5. 將 Client ID 填入 GOOGLE_DRIVE_CLIENT_ID');
-            return;
-        }
+    // Firebase 登入/登出處理
+    async function handleFirebaseLogin() {
         try {
-            await requestDriveToken();
-        } catch (error) {
-            alert('登入失敗：' + (error.message || error));
-        }
-    }
-    
-    function handleDriveLogout() {
-        settings.driveAccessToken = null;
-        settings.driveUserEmail = null;
-        settings.cloudBackupToken = null;
-        saveSettings();
-        updateDriveUI();
-    }
-    
-    function updateDriveUI() {
-        const userInfo = document.getElementById('drive-user-info');
-        const loginBtn = document.getElementById('btn-drive-login');
-        const logoutBtn = document.getElementById('btn-drive-logout');
-        if (userInfo || loginBtn || logoutBtn) {
-            if (settings.driveAccessToken && settings.driveUserEmail) {
-                if (userInfo) userInfo.textContent = `已登入：${settings.driveUserEmail}`;
-                if (loginBtn) loginBtn.style.display = 'none';
-                if (logoutBtn) logoutBtn.style.display = 'block';
-                settings.cloudBackupToken = 'google_drive';
-                saveSettings();
+            if (window.firebaseSignIn) {
+                await window.firebaseSignIn();
             } else {
-                if (userInfo) userInfo.textContent = '未登入';
-                if (loginBtn) loginBtn.style.display = 'block';
-                if (logoutBtn) logoutBtn.style.display = 'none';
-                if (settings.cloudBackupToken === 'google_drive') {
-                    settings.cloudBackupToken = null;
-                    saveSettings();
-                }
+                alert('Firebase 功能尚未載入，請重新整理頁面');
             }
+        } catch (error) {
+            alert('登入失敗：' + error.message);
         }
     }
     
-    function requestDriveToken() {
-        return new Promise((resolve, reject) => {
-            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-                reject(new Error('Google 登入服務尚未載入，請稍後再試'));
-                return;
+    async function handleFirebaseLogout() {
+        try {
+            if (window.firebaseSignOut) {
+                await window.firebaseSignOut();
+                settings.cloudBackupToken = null;
+                saveSettings();
+                updateFirebaseUI();
             }
-            const clientId = GOOGLE_DRIVE_CLIENT_ID.trim();
-            const tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: clientId,
-                scope: 'https://www.googleapis.com/auth/drive.file email',
-                callback: (response) => {
-                    if (response.error) {
-                        reject(new Error(response.error));
-                        return;
-                    }
-                    settings.driveAccessToken = response.access_token;
-                    settings.cloudBackupToken = 'google_drive';
-                    settings.cloudBackupEnabled = true;
-                    fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                        headers: { Authorization: 'Bearer ' + response.access_token }
-                    }).then(r => r.json()).then(profile => {
-                        settings.driveUserEmail = profile.email || '';
-                        saveSettings();
-                        updateDriveUI();
-                        resolve();
-                    }).catch(() => {
-                        settings.driveUserEmail = '已登入';
-                        saveSettings();
-                        updateDriveUI();
-                        resolve();
-                    });
-                }
-            });
-            tokenClient.requestAccessToken();
-        });
+        } catch (error) {
+            alert('登出失敗：' + error.message);
+        }
     }
     
-    // 監聽 Firebase 登入狀態變化（供 Firebase 同步功能使用）
+    function handleFirebaseListBackups() {
+        if (window.firebaseListBackups) {
+            window.firebaseListBackups();
+        } else {
+            alert('Firebase 功能尚未載入，請重新整理頁面');
+        }
+    }
+    
+    function updateFirebaseUI() {
+        const userInfo = document.getElementById('firebase-user-info');
+        const loginBtn = document.getElementById('btn-firebase-login');
+        const logoutBtn = document.getElementById('btn-firebase-logout');
+        const backupActions = document.getElementById('firebase-backup-actions');
+        
+        if (window.getCurrentFirebaseUser && window.getCurrentFirebaseUser()) {
+            const user = window.getCurrentFirebaseUser();
+            if (userInfo) userInfo.textContent = `已登入：${user.displayName || user.email}`;
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = 'block';
+            if (backupActions) backupActions.style.display = 'block';
+            settings.cloudBackupToken = 'firebase';
+            saveSettings();
+        } else {
+            if (userInfo) userInfo.textContent = '未登入';
+            if (loginBtn) loginBtn.style.display = 'block';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            if (backupActions) backupActions.style.display = 'none';
+        }
+    }
+    
+    // 監聽 Firebase 登入狀態變化
     window.addEventListener('firebaseAuthStateChanged', (e) => {
-        if (document.getElementById('firebase-user-info')) {
-            if (window.getCurrentFirebaseUser && window.getCurrentFirebaseUser()) {
-                const user = window.getCurrentFirebaseUser();
-                const ui = document.getElementById('firebase-user-info');
-                if (ui) ui.textContent = `已登入：${user.displayName || user.email}`;
-            }
-        }
-        if (document.getElementById('drive-user-info')) updateDriveUI();
+        updateFirebaseUI();
     });
     
     // 監聽 Firebase 資料載入完成事件
@@ -6549,10 +6517,8 @@
     });
     
     function updateCloudBackupSetting() {
-        const enabledEl = document.getElementById('cloudBackupEnabled');
-        const enabled = enabledEl ? enabledEl.checked : false;
-        const intervalEl = document.getElementById('cloudBackupInterval');
-        const interval = intervalEl ? (parseInt(intervalEl.value) || 24) : 24;
+        const enabled = document.getElementById('cloudBackupEnabled').checked;
+        const interval = parseInt(document.getElementById('cloudBackupInterval').value) || 24;
         settings.cloudBackupEnabled = enabled;
         settings.cloudBackupInterval = interval;
         saveSettings();
@@ -6574,8 +6540,8 @@
     function startCloudBackupTimer() {
         stopCloudBackupTimer();
         if(!settings.cloudBackupEnabled || !settings.cloudBackupToken) return;
-        // Firebase、Google Drive 使用各自的機制，不需要定時器
-        if(settings.cloudBackupToken === 'firebase' || settings.cloudBackupToken === 'google_drive') return;
+        // Firebase 使用自己的定時器，不需要額外的定時器
+        if(settings.cloudBackupToken === 'firebase') return;
         
         const intervalMs = (settings.cloudBackupInterval || 24) * 60 * 60 * 1000;
         cloudBackupTimer = setInterval(() => {
@@ -6608,70 +6574,7 @@
         }
     }
     
-    // Google Drive 備份：建立資料夾並上傳 JSON
-    async function uploadBackupToDrive(jsonStr, filename) {
-        const token = settings.driveAccessToken;
-        if (!token) throw new Error('請先登入 Google Drive');
-        
-        const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
-        const headers = {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json'
-        };
-        
-        // 1. 查詢或建立 Monee 資料夾
-        let folderId = null;
-        const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent("name='" + GOOGLE_DRIVE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") + '&fields=files(id,name)', { headers });
-        const listData = await listRes.json();
-        if (listData.files && listData.files.length > 0) {
-            folderId = listData.files[0].id;
-        } else {
-            const createRes = await fetch(DRIVE_API, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    name: GOOGLE_DRIVE_FOLDER_NAME,
-                    mimeType: 'application/vnd.google-apps.folder'
-                })
-            });
-            if (!createRes.ok) {
-                const err = await createRes.json();
-                throw new Error(err.error?.message || '建立資料夾失敗');
-            }
-            const createData = await createRes.json();
-            folderId = createData.id;
-        }
-        
-        // 2. 上傳 JSON 檔案
-        const boundary = '-------314159265358979323846';
-        const delimiter = '\r\n--' + boundary + '\r\n';
-        const closeDelim = '\r\n--' + boundary + '--';
-        const meta = JSON.stringify({
-            name: filename,
-            parents: [folderId]
-        });
-        const body = delimiter + 'Content-Type: application/json\r\n\r\n' + meta +
-            delimiter + 'Content-Type: application/json\r\n\r\n' + jsonStr + closeDelim;
-        
-        const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'multipart/related; boundary=' + boundary
-            },
-            body
-        });
-        
-        if (!uploadRes.ok) {
-            const err = await uploadRes.json();
-            if (err.error?.code === 401) {
-                settings.driveAccessToken = null;
-                saveSettings();
-                throw new Error('登入已過期，請重新登入 Google Drive');
-            }
-            throw new Error(err.error?.message || '上傳失敗');
-        }
-    }
+    // Google Drive 相關函數已完全移除，改用 Firebase
     
     async function performCloudBackup() {
         if(!settings.cloudBackupEnabled) return;
@@ -6698,19 +6601,13 @@
                 settings.cloudBackupLastTime = new Date().toISOString();
                 saveSettings();
                 console.log('雲端備份完成（本地）:', filename);
-            } else if(settings.cloudBackupToken === 'google_drive') {
-                // Google Drive 備份
-                await uploadBackupToDrive(jsonStr, filename);
-                settings.cloudBackupLastTime = new Date().toISOString();
-                saveSettings();
-                console.log('Google Drive 備份完成:', filename);
             } else if(settings.cloudBackupToken === 'firebase') {
-                // Firebase 備份（保留相容）
+                // Firebase 備份
                 if (window.firebasePerformBackup) {
                     await window.firebasePerformBackup(jsonStr, false);
                     settings.cloudBackupLastTime = new Date().toISOString();
                     saveSettings();
-                } else {
+        } else {
                     throw new Error('Firebase 功能尚未載入，請重新整理頁面');
                 }
             }
@@ -9899,12 +9796,6 @@
         // 啟動雲端自動備份
         if(settings.cloudBackupEnabled) {
             startCloudBackupTimer();
-            // Google Drive：每次開啟 App 自動備份一次
-            if(settings.cloudBackupToken === 'google_drive' && settings.driveAccessToken) {
-                setTimeout(() => {
-                    performCloudBackup().catch(err => console.warn('Google Drive 備份失敗:', err));
-                }, 2000);
-            }
         }
         
         
