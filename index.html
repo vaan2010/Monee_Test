@@ -6595,6 +6595,21 @@
         }
     }
     
+    // 檢查是否為憑證過期/無效，若是則清除 token
+    function handleDriveAuthError(res, errData) {
+        const isAuthError = res.status === 401 || 
+            errData?.error?.code === 401 || 
+            (errData?.error?.message && (errData.error.message.includes('invalid authentication credentials') || errData.error.message.includes('Invalid Credentials') || errData.error.message.includes('Invalid credentials')));
+        if (isAuthError) {
+            settings.driveAccessToken = null;
+            settings.driveUserEmail = null;
+            settings.cloudBackupToken = null;
+            saveSettings();
+            if (typeof updateDriveUI === 'function') updateDriveUI();
+            throw new Error('登入已過期，請重新登入 Google Drive');
+        }
+    }
+    
     // Google Drive 備份：建立資料夾並上傳 JSON
     async function uploadBackupToDrive(jsonStr, filename) {
         const token = settings.driveAccessToken;
@@ -6610,6 +6625,10 @@
         let folderId = null;
         const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent("name='" + GOOGLE_DRIVE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") + '&fields=files(id,name)', { headers });
         const listData = await listRes.json();
+        if (!listRes.ok) {
+            handleDriveAuthError(listRes, listData);
+            throw new Error(listData?.error?.message || '查詢資料夾失敗');
+        }
         if (listData.files && listData.files.length > 0) {
             folderId = listData.files[0].id;
         } else {
@@ -6621,11 +6640,11 @@
                     mimeType: 'application/vnd.google-apps.folder'
                 })
             });
-            if (!createRes.ok) {
-                const err = await createRes.json();
-                throw new Error(err.error?.message || '建立資料夾失敗');
-            }
             const createData = await createRes.json();
+            if (!createRes.ok) {
+                handleDriveAuthError(createRes, createData);
+                throw new Error(createData?.error?.message || '建立資料夾失敗');
+            }
             folderId = createData.id;
         }
         
@@ -6650,13 +6669,10 @@
         });
         
         if (!uploadRes.ok) {
-            const err = await uploadRes.json();
-            if (err.error?.code === 401) {
-                settings.driveAccessToken = null;
-                saveSettings();
-                throw new Error('登入已過期，請重新登入 Google Drive');
-            }
-            throw new Error(err.error?.message || '上傳失敗');
+            let err = {};
+            try { err = await uploadRes.json(); } catch (e) {}
+            handleDriveAuthError(uploadRes, err);
+            throw new Error(err?.error?.message || '上傳失敗');
         }
     }
     
@@ -6668,23 +6684,76 @@
         const headers = { 'Authorization': 'Bearer ' + token };
         const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent("name='" + GOOGLE_DRIVE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") + '&fields=files(id,name)', { headers });
         const listData = await listRes.json();
+        if (!listRes.ok) {
+            handleDriveAuthError(listRes, listData);
+            throw new Error(listData?.error?.message || '查詢失敗');
+        }
         if (listData.files && listData.files.length > 0) return listData.files[0].id;
         return null;
     }
     
-    // 從 Google Drive 下載最新備份並匯入
+    // 從 Google Drive 下載備份並匯入（先顯示選擇視窗）
     async function syncFromDrive() {
         const token = settings.driveAccessToken;
         if (!token) {
             alert('請先登入 Google Drive');
             return;
         }
-        if (!confirm('將從雲端下載最新備份並覆蓋本機資料，確定要同步嗎？')) return;
-        
         const btn = document.getElementById('btn-sync-from-drive');
         const originalHtml = btn ? btn.innerHTML : '';
+        if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 載入中...'; btn.disabled = true; }
+        try {
+            const folderId = await getMoneeFolderId();
+            if (!folderId) throw new Error('找不到 Monee 資料夾，請先執行一次備份');
+            const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
+            const headers = { 'Authorization': 'Bearer ' + token };
+            const q = "'" + folderId + "' in parents and trashed=false and name contains 'my_assets_backup'";
+            const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent(q) + '&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,modifiedTime)', { headers });
+            const listData = await listRes.json();
+            if (!listRes.ok) {
+                handleDriveAuthError(listRes, listData);
+                throw new Error(listData?.error?.message || '查詢失敗');
+            }
+            if (!listData.files || listData.files.length === 0) throw new Error('雲端尚無備份檔案');
+            const files = listData.files;
+            const fmt = (f) => {
+                if (f.modifiedTime) {
+                    const d = new Date(f.modifiedTime);
+                    return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                }
+                const m = f.name.match(/(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/);
+                return m ? m[1] + '/' + m[2] + '/' + m[3] + ' ' + m[4] + ':' + m[5] : f.name;
+            };
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.zIndex = '3500';
+            modal.innerHTML = '<div class="modal-content-wrapper" style="max-width: 400px; width: 92%; max-height: 80vh; padding: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 16px;"><div style="font-size: 18px; font-weight: 600; color: var(--text-primary); padding: 20px; flex-shrink: 0; border-bottom: 1px solid var(--border-color);">選擇要同步的備份</div><div id="syncBackupList" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch;"></div><div style="padding: 16px; flex-shrink: 0; border-top: 1px solid var(--border-color); text-align: center;"><button id="syncBackupCancelBtn" style="padding: 10px 24px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">取消</button></div></div>';
+            const listEl = modal.querySelector('#syncBackupList');
+            files.forEach(f => {
+                const item = document.createElement('div');
+                item.setAttribute('data-file-id', f.id);
+                item.style.cssText = 'padding: 14px 16px; margin-bottom: 8px; background: var(--bg-color); border-radius: 12px; border: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s;';
+                item.innerHTML = '<div style="font-size: 15px; color: var(--text-primary); font-weight: 500;">' + fmt(f) + '</div><div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + (f.name || '') + '</div>';
+                item.onclick = () => { modal.remove(); doSyncWithFileId(f.id, btn, originalHtml); };
+                item.onmouseenter = () => { item.style.background = 'var(--active-bg)'; };
+                item.onmouseleave = () => { item.style.background = 'var(--bg-color)'; };
+                listEl.appendChild(item);
+            });
+            modal.onclick = (e) => { if (e.target === modal) { modal.remove(); if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; } } };
+            modal.querySelector('#syncBackupCancelBtn').onclick = () => { modal.remove(); if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; } };
+            document.body.appendChild(modal);
+        } catch (err) {
+            alert('載入失敗：' + (err.message || err));
+        } finally {
+            if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
+        }
+    }
+    
+    async function doSyncWithFileId(fileId, btn, originalHtml) {
+        const token = settings.driveAccessToken;
+        if (!token) return;
+        if (!confirm('將覆蓋本機資料，確定要同步嗎？')) return;
         if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...'; btn.disabled = true; }
-        
         const progressToast = document.getElementById('importProgressToast');
         const progressBar = document.getElementById('importProgressBar');
         const progressText = document.getElementById('importProgressText');
@@ -6692,53 +6761,25 @@
         if (importOverlay) importOverlay.style.display = 'block';
         if (progressToast) { progressToast.style.display = 'block'; progressToast.style.background = '#0a84ff'; }
         if (progressBar) progressBar.style.width = '20%';
-        if (progressText) progressText.innerText = '取得雲端最新備份...';
-        
+        if (progressText) progressText.innerText = '下載備份中...';
+        const headers = { 'Authorization': 'Bearer ' + token };
         try {
-            const folderId = await getMoneeFolderId();
-            if (!folderId) {
-                throw new Error('找不到 Monee 資料夾，請先執行一次備份');
-            }
-            
-            const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
-            const headers = { 'Authorization': 'Bearer ' + token };
-            const q = "'" + folderId + "' in parents and trashed=false and name contains 'my_assets_backup'";
-            const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent(q) + '&orderBy=modifiedTime desc&pageSize=1&fields=files(id,name,modifiedTime)', { headers });
-            const listData = await listRes.json();
-            
-            if (!listData.files || listData.files.length === 0) {
-                throw new Error('雲端尚無備份檔案');
-            }
-            
-            const latestFile = listData.files[0];
-            if (progressText) progressText.innerText = '下載備份中...';
-            if (progressBar) progressBar.style.width = '50%';
-            
-            const downloadRes = await fetch('https://www.googleapis.com/drive/v3/files/' + latestFile.id + '?alt=media', { headers });
+            const downloadRes = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', { headers });
             if (!downloadRes.ok) {
-                if (downloadRes.status === 401) {
-                    settings.driveAccessToken = null;
-                    saveSettings();
-                    throw new Error('登入已過期，請重新登入');
-                }
+                let errData = {}; try { errData = await downloadRes.json(); } catch (e) {}
+                handleDriveAuthError(downloadRes, errData);
                 throw new Error('下載失敗');
             }
             const jsonStr = await downloadRes.text();
-            
             if (progressText) progressText.innerText = '解析資料中...';
-            if (progressBar) progressBar.style.width = '70%';
-            
+            if (progressBar) progressBar.style.width = '60%';
             const d = JSON.parse(jsonStr);
-            
             if (progressText) progressText.innerText = '寫入資料中...';
             if (progressBar) progressBar.style.width = '90%';
-            
             applyImportData(d);
-            
             if (progressBar) progressBar.style.width = '100%';
             if (progressText) progressText.innerText = '同步完成！';
             showBackupToast('已從雲端同步');
-            
             setTimeout(() => {
                 if (importOverlay) importOverlay.style.display = 'none';
                 if (progressToast) progressToast.style.display = 'none';
@@ -9977,7 +10018,7 @@
                         .then(() => showBackupToast('已自動備份'))
                         .catch(err => {
                             console.warn('Google Drive 備份失敗:', err);
-                            if (err && err.message && err.message.includes('過期')) {
+                            if (err && err.message && (err.message.includes('過期') || err.message.includes('重新登入'))) {
                                 showBackupToast('備份失敗，請重新登入');
                             }
                         });
