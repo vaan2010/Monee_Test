@@ -6387,7 +6387,7 @@
                         <button onclick="testCloudBackup()" class="cb-btn cb-btn-backup">
                             <i class="fas fa-cloud-upload-alt"></i> 立即備份
                         </button>
-                        <button onclick="syncFromDrive()" class="cb-btn" style="background: #0a84ff; color: white; margin-top: 12px; display: none;" id="btn-sync-from-drive">
+                        <button class="cb-btn" style="background: #0a84ff; color: white; margin-top: 12px; display: none;" id="btn-sync-from-drive">
                             <i class="fas fa-cloud-download-alt"></i> 從雲端同步
                         </button>
                     </div>
@@ -6462,7 +6462,10 @@
                 if (userInfo) userInfo.textContent = `已登入：${settings.driveUserEmail}`;
                 if (loginBtn) loginBtn.style.display = 'none';
                 if (logoutBtn) logoutBtn.style.display = 'block';
-                if (syncBtn) syncBtn.style.display = 'block';
+                if (syncBtn) {
+                    syncBtn.style.display = 'block';
+                    syncBtn.onclick = () => syncFromDrive();
+                }
                 settings.cloudBackupToken = 'google_drive';
                 saveSettings();
             } else {
