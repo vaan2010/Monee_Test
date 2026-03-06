@@ -76,7 +76,7 @@
     </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.0.1/highcharts.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async></script>
     
@@ -513,6 +513,7 @@
         .list-item:has(.item-name-row) .item-icon { align-self: flex-start; margin-top: 2px; }
         #group-stock .list-item:has(.item-name-row) { padding-top: 12px; padding-bottom: 16px; min-height: auto; }
         #group-twstock .list-item:has(.item-name-row) { padding-top: 12px; padding-bottom: 16px; min-height: auto; }
+        #group-twstock .list-item.twstock-has-dividend { border-left: 4px solid #ffd60a; }
         
         /* 隱藏對齊用 spacer */
         .list-item:has(.item-name-row) .item-amount-name-row { display: none !important; }
@@ -1375,28 +1376,6 @@
         .btn-delete { width: 100%; background: var(--card-bg); color: var(--color-debt); border: none; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 500; }
         .hint-text { color: var(--text-secondary); font-size: 12px; margin-top: 8px; padding: 0 20px; opacity: 0.7; }
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #30d158; color: #000; padding: 10px 20px; border-radius: 20px; font-weight: 600; font-size: 14px; z-index: 2000; display: none; }
-        
-        /* 雲端備份設定 - 手機版優化 */
-        .cloud-backup-modal .cb-section { padding: 16px 20px; margin-bottom: 0; border-bottom: 1px solid var(--border-color); }
-        .cloud-backup-modal .cb-section:last-of-type { border-bottom: none; }
-        .cloud-backup-modal .cb-label { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; display: block; }
-        .cloud-backup-modal .cb-value { font-size: 16px; color: var(--text-primary); }
-        .cloud-backup-modal .cb-input-wrap { margin-top: 8px; }
-        .cloud-backup-modal .cb-input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-primary); font-size: 14px; box-sizing: border-box; }
-        .cloud-backup-modal .cb-hint { font-size: 12px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; opacity: 0.9; }
-        .cloud-backup-modal .cb-status-card { padding: 16px; background: var(--bg-color); border-radius: 12px; margin: 16px 0; border: 1px solid var(--border-color); }
-        .cloud-backup-modal .cb-status-title { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
-        .cloud-backup-modal .cb-status-text { font-size: 16px; color: var(--text-primary); font-weight: 500; margin-bottom: 8px; }
-        .cloud-backup-modal .cb-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
-        .cloud-backup-modal .cb-btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .cloud-backup-modal .cb-btn:first-of-type { margin-top: 0; }
-        .cloud-backup-modal .cb-btn-backup { background: var(--color-up); color: white; }
-        .cloud-backup-modal .cb-btn-close { background: var(--border-color); color: var(--text-primary); padding: 12px 24px; }
-        @media (max-width: 480px) {
-            .cloud-backup-modal .cb-section { padding: 18px 20px; }
-            .cloud-backup-modal .cb-status-card { padding: 18px; margin: 18px 0; }
-            .cloud-backup-modal .cb-btn { padding: 16px; margin-top: 14px; }
-        }
         .ai-btn-area { margin: 15px 16px 0 16px; }
         .btn-ai { width: 100%; background: linear-gradient(135deg, #0a84ff, #5e5ce6); color: #fff; border: none; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
         .btn-ai:disabled { background: var(--card-bg); color: var(--text-secondary); cursor: not-allowed; opacity: 0.6; }
@@ -1533,7 +1512,6 @@
     </div>
     
     <div id="migrationToast" class="toast">資料已還原</div>
-    <div id="backupToast" class="toast" style="background: #30d158;">已自動備份</div>
     <div id="importProgressToast" class="toast" style="background: #0a84ff; display: none;">
         <div style="display: flex; align-items: center; gap: 10px;">
             <div style="flex: 1; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden;">
@@ -1976,6 +1954,11 @@
                     <div style="font-size: 18px; font-weight: 600;">持股成本損益</div>
                     <span id="dCostPnlVal" style="font-size: 24px; font-weight: 700;">+0 (0%)</span>
                 <div style="font-size: 12px; color: #8e8e93; margin-top: 5px;">參考損益 (含手續費)</div>
+                </div>
+                <div id="dDividendBlock" style="display: none; margin-top: 16px; padding: 16px; background: rgba(255, 214, 10, 0.15); border-radius: 12px; border: 1px solid rgba(255, 214, 10, 0.5);">
+                    <div style="font-size: 14px; color: #8e8e93; margin-bottom: 6px;">除權除息</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #ffd60a;"><span id="dDividendAmount">0</span></div>
+                    <div style="font-size: 14px; color: #ffd60a; margin-top: 4px;">除息日：<span id="dDividendDate">-</span></div>
                 </div>
             </div>
         </div>
@@ -3127,6 +3110,7 @@
     let isEditMode = false;
     let sortables = [];
     let currentDetailAcc = null;
+    let twDividendMap = {};
     
     // 統一的圖表動畫配置
     const CHART_ANIMATION_CONFIG = {
@@ -3167,6 +3151,39 @@
     // 2. Define Data Loading Functions
     function safeParseFloat(val) { let v = parseFloat(val); return isNaN(v) ? 0 : v; }
     
+    async function loadTwDividendData() {
+        try {
+            const url = 'https://www.twse.com.tw/exchangeReport/TWT48U?response=json';
+            let res = await fetch(url);
+            if (!res.ok) res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.stat !== 'OK' || !data.data) return;
+            const f = data.fields || [];
+            const dateIdx = f.indexOf('除權除息日期');
+            const codeIdx = f.indexOf('股票代號');
+            const nameIdx = f.indexOf('名稱');
+            const cashIdx = f.indexOf('現金股利');
+            const stockIdx = f.indexOf('無償配股率');
+            twDividendMap = {};
+            for (const row of data.data) {
+                const code = (row[codeIdx] || '').toString().trim();
+                if (!code) continue;
+                const dateStr = (row[dateIdx] || '').toString().trim();
+                let cashDiv = 0;
+                const cashRaw = (row[cashIdx] || '').toString();
+                if (!/待公告/i.test(cashRaw)) {
+                    const n = parseFloat(cashRaw.replace(/\s/g, '').replace(/<[^>]*>/g, ''));
+                    if (!isNaN(n)) cashDiv = n;
+                }
+                const stockDiv = parseFloat((row[stockIdx] || '0').toString()) || 0;
+                const m = dateStr.match(/(\d+)年(\d+)月(\d+)日/);
+                const dateDisplay = m ? (parseInt(m[1], 10) + 1911) + '/' + parseInt(m[2], 10) + '/' + parseInt(m[3], 10) : dateStr;
+                twDividendMap[code] = { name: (row[nameIdx] || '').toString().trim(), cashDiv, stockDiv, dateStr: dateDisplay };
+            }
+        } catch (e) {}
+    }
+    
     function tryMigrateOldData() {
         if (localStorage.getItem(STORAGE_KEY_DATA)) return;
         const oldKeys = ['myAssets_v6', 'myAssets_v5', 'myAssets_v4'];
@@ -3180,15 +3197,6 @@
         if (found) {
             const t = document.getElementById('migrationToast');
             t.style.display='block'; setTimeout(()=>t.style.display='none',3000);
-        }
-    }
-    
-    function showBackupToast(msg) {
-        const t = document.getElementById('backupToast');
-        if (t) {
-            t.textContent = msg || '已自動備份';
-            t.style.display = 'block';
-            setTimeout(() => { t.style.display = 'none'; }, 2500);
         }
     }
     
@@ -4163,7 +4171,7 @@
     function hideCustomTooltip(){ document.getElementById('customTooltip').style.display='none'; }
 
     function updateChartData(animate = true) { 
-        if(!Highcharts)return; 
+        if(typeof Highcharts === 'undefined') return; 
         let groups={'bank':0,'stock':0,'twstock':0,'crypto':0}; 
         currentDetails={'bank':[],'stock':[],'twstock':[],'crypto':[]}; 
         
@@ -6351,49 +6359,46 @@
         modal.className = 'modal';
         modal.style.zIndex = '3000';
         modal.innerHTML = `
-            <div class="modal-content-wrapper cloud-backup-modal" style="max-width: 420px; width: 92%; max-height: 90vh; padding: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 16px;">
-                <div style="font-size: 18px; font-weight: 600; color: var(--text-primary); padding: 20px 20px 16px; flex-shrink: 0; border-bottom: 1px solid var(--border-color);">雲端備份設定</div>
-                <div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;">
-                    <div class="cb-section" style="display: flex; align-items: center; justify-content: space-between;">
-                        <span class="cb-value">啟用自動備份</span>
+            <div class="modal-content-wrapper" style="max-width: 400px; max-height: 90vh; padding: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 12px;">
+                <div style="font-size: 18px; font-weight: 600; color: var(--text-primary); padding: 20px 20px 15px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border-color);">雲端備份設定</div>
+                <div class="form-group" style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 15px 20px; -webkit-overflow-scrolling: touch;">
+                    <div class="form-row" style="display: flex; align-items: center; justify-content: space-between;">
+                        <span class="form-label">啟用自動備份</span>
                         <label class="switch">
                             <input type="checkbox" id="cloudBackupEnabled" ${settings.cloudBackupEnabled ? 'checked' : ''} onchange="updateCloudBackupSetting()">
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="cb-section" id="cloudBackupStatusRow" style="${settings.cloudBackupEnabled ? '' : 'display: none;'}">
-                        <span class="cb-label">上次備份</span>
-                        <span id="cloudBackupLastTime" class="cb-value">${settings.cloudBackupLastTime ? new Date(settings.cloudBackupLastTime).toLocaleString('zh-TW') : '尚未備份'}</span>
+                    <div class="form-row" style="${settings.cloudBackupEnabled ? '' : 'display: none;'}" id="cloudBackupStatusRow">
+                        <span class="form-label">上次備份</span>
+                        <span id="cloudBackupLastTime" style="color: var(--text-secondary);">${settings.cloudBackupLastTime ? new Date(settings.cloudBackupLastTime).toLocaleString('zh-TW') : '尚未備份'}</span>
                     </div>
-                    <div class="cb-section">
-                        <span class="cb-label">Google Client ID</span>
-                        <div class="cb-input-wrap">
-                            <input type="text" id="inpDriveClientId" class="cb-input" placeholder="例：123456789-xxx.apps.googleusercontent.com" value="${(settings.driveClientId || '')}" onchange="saveDriveClientId()">
-                        </div>
-                        <div class="cb-hint">請至 Google Cloud Console 建立 OAuth 用戶端 ID 並啟用 Drive API</div>
+                    <div class="form-row" style="margin-top: 20px;">
+                        <span class="form-label">Google Client ID</span>
+                        <input type="text" id="inpDriveClientId" class="form-input" placeholder="例：123456789-xxx.apps.googleusercontent.com" value="${(settings.driveClientId || '')}" style="font-size: 13px;" onchange="saveDriveClientId()">
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">請至 Google Cloud Console 建立 OAuth 用戶端 ID 並啟用 Drive API</div>
                     </div>
-                    <div class="cb-section">
-                        <div id="drive-login-status" class="cb-status-card">
-                            <div class="cb-status-title">Google Drive 備份狀態</div>
-                            <div id="drive-user-info" class="cb-status-text">未登入</div>
-                            <div class="cb-desc">登入後將在您的 Google Drive 建立「${GOOGLE_DRIVE_FOLDER_NAME}」資料夾，每次開啟 App 會自動備份</div>
+                    <div class="form-row" style="margin-top: 15px;">
+                        <div id="drive-login-status" style="margin-bottom: 10px; padding: 10px; background: var(--card-bg); border-radius: 8px;">
+                            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Google Drive 備份狀態</div>
+                            <div id="drive-user-info" style="font-size: 16px; color: var(--text-primary);">未登入</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">登入後將在您的 Google Drive 建立「${GOOGLE_DRIVE_FOLDER_NAME}」資料夾，每次開啟 App 會自動備份</div>
                         </div>
-                        <button id="btn-drive-login" class="cb-btn" onclick="handleDriveLogin()" style="background: #4285f4; color: white;">
+                        <button id="btn-drive-login" onclick="handleDriveLogin()" style="width: 100%; padding: 12px; background: #4285f4; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
                             <i class="fab fa-google"></i> Google 登入（連結 Drive）
                         </button>
-                        <button id="btn-drive-logout" class="cb-btn" onclick="handleDriveLogout()" style="background: var(--color-down); color: white; display: none;">
+                        <button id="btn-drive-logout" onclick="handleDriveLogout()" style="width: 100%; padding: 12px; background: var(--color-down); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; display: none;">
                             <i class="fas fa-sign-out-alt"></i> 登出
                         </button>
-                        <button onclick="testCloudBackup()" class="cb-btn cb-btn-backup">
+                    </div>
+                    <div class="form-row" style="margin-top: 10px;">
+                        <button onclick="testCloudBackup()" style="width: 100%; padding: 12px; background: var(--color-up); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
                             <i class="fas fa-cloud-upload-alt"></i> 立即備份
-                        </button>
-                        <button class="cb-btn" style="background: #0a84ff; color: white; margin-top: 12px; display: none;" id="btn-sync-from-drive">
-                            <i class="fas fa-cloud-download-alt"></i> 從雲端同步
                         </button>
                     </div>
                 </div>
-                <div style="padding: 16px 20px; flex-shrink: 0; border-top: 1px solid var(--border-color); text-align: center;">
-                    <button onclick="closeCloudBackupModal()" class="cb-btn cb-btn-close">關閉</button>
+                <div style="padding: 15px 20px; text-align: center; flex-shrink: 0; border-top: 1px solid var(--border-color);">
+                    <button onclick="closeCloudBackupModal()" style="padding: 10px 20px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer;">關閉</button>
                 </div>
             </div>
         `;
@@ -6456,23 +6461,17 @@
         const userInfo = document.getElementById('drive-user-info');
         const loginBtn = document.getElementById('btn-drive-login');
         const logoutBtn = document.getElementById('btn-drive-logout');
-        const syncBtn = document.getElementById('btn-sync-from-drive');
         if (userInfo || loginBtn || logoutBtn) {
             if (settings.driveAccessToken && settings.driveUserEmail) {
                 if (userInfo) userInfo.textContent = `已登入：${settings.driveUserEmail}`;
                 if (loginBtn) loginBtn.style.display = 'none';
                 if (logoutBtn) logoutBtn.style.display = 'block';
-                if (syncBtn) {
-                    syncBtn.style.display = 'block';
-                    syncBtn.onclick = () => syncFromDrive();
-                }
                 settings.cloudBackupToken = 'google_drive';
                 saveSettings();
             } else {
                 if (userInfo) userInfo.textContent = '未登入';
                 if (loginBtn) loginBtn.style.display = 'block';
                 if (logoutBtn) logoutBtn.style.display = 'none';
-                if (syncBtn) syncBtn.style.display = 'none';
                 if (settings.cloudBackupToken === 'google_drive') {
                     settings.cloudBackupToken = null;
                     saveSettings();
@@ -6509,27 +6508,11 @@
                         settings.driveUserEmail = profile.email || '';
                         saveSettings();
                         updateDriveUI();
-                        const cb = document.getElementById('cloudBackupEnabled');
-                        if (cb) cb.checked = true;
-                        const statusRow = document.getElementById('cloudBackupStatusRow');
-                        if (statusRow) statusRow.style.display = 'flex';
-                        performCloudBackup().then(() => {
-                            const lastEl = document.getElementById('cloudBackupLastTime');
-                            if (lastEl) lastEl.textContent = settings.cloudBackupLastTime ? new Date(settings.cloudBackupLastTime).toLocaleString('zh-TW') : '尚未備份';
-                            showBackupToast('已自動備份');
-                        }).catch(() => {});
                         resolve();
                     }).catch(() => {
                         settings.driveUserEmail = '已登入';
                         saveSettings();
                         updateDriveUI();
-                        const cb = document.getElementById('cloudBackupEnabled');
-                        if (cb) cb.checked = true;
-                        performCloudBackup().then(() => {
-                            const lastEl = document.getElementById('cloudBackupLastTime');
-                            if (lastEl) lastEl.textContent = settings.cloudBackupLastTime ? new Date(settings.cloudBackupLastTime).toLocaleString('zh-TW') : '尚未備份';
-                            showBackupToast('已自動備份');
-                        }).catch(() => {});
                         resolve();
                     });
                 }
@@ -6550,7 +6533,7 @@
         const intervalRow = document.getElementById('cloudBackupIntervalRow');
         const statusRow = document.getElementById('cloudBackupStatusRow');
         if(intervalRow) intervalRow.style.display = enabled ? 'flex' : 'none';
-        if(statusRow) statusRow.style.display = enabled ? 'block' : 'none';
+        if(statusRow) statusRow.style.display = enabled ? 'flex' : 'none';
         
         if(enabled) {
             startCloudBackupTimer();
@@ -6598,21 +6581,6 @@
         }
     }
     
-    // 檢查是否為憑證過期/無效，若是則清除 token
-    function handleDriveAuthError(res, errData) {
-        const isAuthError = res.status === 401 || 
-            errData?.error?.code === 401 || 
-            (errData?.error?.message && (errData.error.message.includes('invalid authentication credentials') || errData.error.message.includes('Invalid Credentials') || errData.error.message.includes('Invalid credentials')));
-        if (isAuthError) {
-            settings.driveAccessToken = null;
-            settings.driveUserEmail = null;
-            settings.cloudBackupToken = null;
-            saveSettings();
-            if (typeof updateDriveUI === 'function') updateDriveUI();
-            throw new Error('登入已過期，請重新登入 Google Drive');
-        }
-    }
-    
     // Google Drive 備份：建立資料夾並上傳 JSON
     async function uploadBackupToDrive(jsonStr, filename) {
         const token = settings.driveAccessToken;
@@ -6628,10 +6596,6 @@
         let folderId = null;
         const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent("name='" + GOOGLE_DRIVE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") + '&fields=files(id,name)', { headers });
         const listData = await listRes.json();
-        if (!listRes.ok) {
-            handleDriveAuthError(listRes, listData);
-            throw new Error(listData?.error?.message || '查詢資料夾失敗');
-        }
         if (listData.files && listData.files.length > 0) {
             folderId = listData.files[0].id;
         } else {
@@ -6643,11 +6607,11 @@
                     mimeType: 'application/vnd.google-apps.folder'
                 })
             });
-            const createData = await createRes.json();
             if (!createRes.ok) {
-                handleDriveAuthError(createRes, createData);
-                throw new Error(createData?.error?.message || '建立資料夾失敗');
+                const err = await createRes.json();
+                throw new Error(err.error?.message || '建立資料夾失敗');
             }
+            const createData = await createRes.json();
             folderId = createData.id;
         }
         
@@ -6672,157 +6636,13 @@
         });
         
         if (!uploadRes.ok) {
-            let err = {};
-            try { err = await uploadRes.json(); } catch (e) {}
-            handleDriveAuthError(uploadRes, err);
-            throw new Error(err?.error?.message || '上傳失敗');
-        }
-    }
-    
-    // 從 Google Drive 取得 Monee 資料夾 ID
-    async function getMoneeFolderId() {
-        const token = settings.driveAccessToken;
-        if (!token) return null;
-        const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
-        const headers = { 'Authorization': 'Bearer ' + token };
-        const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent("name='" + GOOGLE_DRIVE_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") + '&fields=files(id,name)', { headers });
-        const listData = await listRes.json();
-        if (!listRes.ok) {
-            handleDriveAuthError(listRes, listData);
-            throw new Error(listData?.error?.message || '查詢失敗');
-        }
-        if (listData.files && listData.files.length > 0) return listData.files[0].id;
-        return null;
-    }
-    
-    // 從 Google Drive 下載備份並匯入（先顯示選擇視窗）
-    async function syncFromDrive() {
-        const token = settings.driveAccessToken;
-        if (!token) {
-            alert('請先登入 Google Drive');
-            return;
-        }
-        const btn = document.getElementById('btn-sync-from-drive');
-        const originalHtml = btn ? btn.innerHTML : '';
-        if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 載入中...'; btn.disabled = true; }
-        try {
-            const folderId = await getMoneeFolderId();
-            if (!folderId) throw new Error('找不到 Monee 資料夾，請先執行一次備份');
-            const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
-            const headers = { 'Authorization': 'Bearer ' + token };
-            const q = "'" + folderId + "' in parents and trashed=false and name contains 'my_assets_backup'";
-            const listRes = await fetch(DRIVE_API + '?q=' + encodeURIComponent(q) + '&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,modifiedTime)', { headers });
-            const listData = await listRes.json();
-            if (!listRes.ok) {
-                handleDriveAuthError(listRes, listData);
-                throw new Error(listData?.error?.message || '查詢失敗');
+            const err = await uploadRes.json();
+            if (err.error?.code === 401) {
+                settings.driveAccessToken = null;
+                saveSettings();
+                throw new Error('登入已過期，請重新登入 Google Drive');
             }
-            if (!listData.files || listData.files.length === 0) throw new Error('雲端尚無備份檔案');
-            const files = listData.files;
-            const fmt = (f) => {
-                if (f.modifiedTime) {
-                    const d = new Date(f.modifiedTime);
-                    return d.toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-                }
-                const m = f.name.match(/(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})/);
-                return m ? m[1] + '/' + m[2] + '/' + m[3] + ' ' + m[4] + ':' + m[5] : f.name;
-            };
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.style.zIndex = '3500';
-            modal.innerHTML = '<div class="modal-content-wrapper" style="max-width: 400px; width: 92%; max-height: 80vh; padding: 0; overflow: hidden; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 16px;"><div style="font-size: 18px; font-weight: 600; color: var(--text-primary); padding: 20px; flex-shrink: 0; border-bottom: 1px solid var(--border-color);">選擇要同步的備份</div><div id="syncBackupList" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch;"></div><div style="padding: 16px; flex-shrink: 0; border-top: 1px solid var(--border-color); text-align: center;"><button id="syncBackupCancelBtn" style="padding: 10px 24px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">取消</button></div></div>';
-            const listEl = modal.querySelector('#syncBackupList');
-            files.forEach(f => {
-                const item = document.createElement('div');
-                item.setAttribute('data-file-id', f.id);
-                item.style.cssText = 'padding: 14px 16px; margin-bottom: 8px; background: var(--bg-color); border-radius: 12px; border: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s;';
-                item.innerHTML = '<div style="font-size: 15px; color: var(--text-primary); font-weight: 500;">' + fmt(f) + '</div><div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' + (f.name || '') + '</div>';
-                item.onclick = () => { modal.remove(); doSyncWithFileId(f.id, btn, originalHtml); };
-                item.onmouseenter = () => { item.style.background = 'var(--active-bg)'; };
-                item.onmouseleave = () => { item.style.background = 'var(--bg-color)'; };
-                listEl.appendChild(item);
-            });
-            modal.onclick = (e) => { if (e.target === modal) { modal.remove(); if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; } } };
-            modal.querySelector('#syncBackupCancelBtn').onclick = () => { modal.remove(); if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; } };
-            document.body.appendChild(modal);
-        } catch (err) {
-            alert('載入失敗：' + (err.message || err));
-        } finally {
-            if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
-        }
-    }
-    
-    async function doSyncWithFileId(fileId, btn, originalHtml) {
-        const token = settings.driveAccessToken;
-        if (!token) return;
-        if (!confirm('將覆蓋本機資料，確定要同步嗎？')) return;
-        if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...'; btn.disabled = true; }
-        const progressToast = document.getElementById('importProgressToast');
-        const progressBar = document.getElementById('importProgressBar');
-        const progressText = document.getElementById('importProgressText');
-        const importOverlay = document.getElementById('importOverlay');
-        if (importOverlay) importOverlay.style.display = 'block';
-        if (progressToast) { progressToast.style.display = 'block'; progressToast.style.background = '#0a84ff'; }
-        if (progressBar) progressBar.style.width = '20%';
-        if (progressText) progressText.innerText = '下載備份中...';
-        const headers = { 'Authorization': 'Bearer ' + token };
-        try {
-            const downloadRes = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media', { headers });
-            if (!downloadRes.ok) {
-                let errData = {}; try { errData = await downloadRes.json(); } catch (e) {}
-                handleDriveAuthError(downloadRes, errData);
-                throw new Error('下載失敗');
-            }
-            const jsonStr = await downloadRes.text();
-            if (progressText) progressText.innerText = '解析資料中...';
-            if (progressBar) progressBar.style.width = '60%';
-            const d = JSON.parse(jsonStr);
-            if (progressText) progressText.innerText = '寫入資料中...';
-            if (progressBar) progressBar.style.width = '90%';
-            applyImportData(d);
-            if (progressBar) progressBar.style.width = '100%';
-            if (progressText) progressText.innerText = '同步完成！';
-            showBackupToast('已從雲端同步');
-            setTimeout(() => {
-                if (importOverlay) importOverlay.style.display = 'none';
-                if (progressToast) progressToast.style.display = 'none';
-                if (progressBar) progressBar.style.width = '0%';
-                location.reload();
-            }, 500);
-        } catch (err) {
-            if (importOverlay) importOverlay.style.display = 'none';
-            if (progressToast) progressToast.style.display = 'none';
-            if (progressBar) progressBar.style.width = '0%';
-            alert('同步失敗：' + (err.message || err));
-        } finally {
-            if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
-        }
-    }
-    
-    // 套用匯入資料到 localStorage（供檔案匯入與雲端同步共用）
-    function applyImportData(d) {
-        let primaryUserId = null;
-        if (d.version === '2.0' && d.users && d.usersData) {
-            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(d.users));
-            if (d.users.length > 0) {
-                primaryUserId = d.users[0].id;
-                localStorage.setItem(STORAGE_KEY_CURRENT_USER, primaryUserId);
-            }
-            Object.keys(d.usersData).forEach(userId => {
-                const userData = d.usersData[userId];
-                localStorage.setItem(`${STORAGE_KEY_DATA}_${userId}`, JSON.stringify(userData.data || []));
-                localStorage.setItem(`${STORAGE_KEY_SETTINGS}_${userId}`, JSON.stringify(userData.settings || {}));
-                localStorage.setItem(`${STORAGE_KEY_JOURNAL}_${userId}`, JSON.stringify(userData.journal || []));
-                localStorage.setItem(`${STORAGE_KEY_FIXED_TRANSFERS}_${userId}`, JSON.stringify(userData.fixedTransfers || []));
-                if (userData.dateNotes !== undefined) localStorage.setItem(`${STORAGE_KEY_DATE_NOTES}_${userId}`, JSON.stringify(userData.dateNotes || {}));
-                if (userData.assetHistory !== undefined) localStorage.setItem(`${STORAGE_KEY_ASSET_HISTORY}_${userId}`, JSON.stringify(userData.assetHistory || {}));
-            });
-        } else if (d.data && d.settings) {
-            primaryUserId = currentUserId;
-            localStorage.setItem(`${STORAGE_KEY_DATA}_${primaryUserId}`, JSON.stringify(d.data));
-            localStorage.setItem(`${STORAGE_KEY_SETTINGS}_${primaryUserId}`, JSON.stringify(d.settings));
-        } else {
-            throw new Error('檔案格式錯誤');
+            throw new Error(err.error?.message || '上傳失敗');
         }
     }
     
@@ -6953,14 +6773,43 @@
                     // 準備要切換的主要使用者 ID
                     let primaryUserId = null;
 
-                    progressBar.style.width = '90%';
-                    progressText.innerText = '寫入資料中...';
-                    applyImportData(d);
-                    if (d.version === '2.0' && d.users && d.users.length > 0) {
-                        primaryUserId = d.users[0].id;
-                        currentUserId = primaryUserId;
+                    if (d.version === '2.0' && d.users && d.usersData) {
+                        progressBar.style.width = '90%';
+                        progressText.innerText = '寫入資料中...';
+                        
+                        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(d.users));
+                        
+                        if (d.users.length > 0) {
+                            primaryUserId = d.users[0].id;
+                            localStorage.setItem(STORAGE_KEY_CURRENT_USER, primaryUserId);
+                            currentUserId = primaryUserId;
+                        }
+
+                        Object.keys(d.usersData).forEach(userId => {
+                            const userData = d.usersData[userId];
+                            localStorage.setItem(`${STORAGE_KEY_DATA}_${userId}`, JSON.stringify(userData.data || []));
+                            localStorage.setItem(`${STORAGE_KEY_SETTINGS}_${userId}`, JSON.stringify(userData.settings || {}));
+                            // 修正：確保即使是 undefined 也要存成空陣列，避免讀取錯誤
+                            localStorage.setItem(`${STORAGE_KEY_JOURNAL}_${userId}`, JSON.stringify(userData.journal || []));
+                            localStorage.setItem(`${STORAGE_KEY_FIXED_TRANSFERS}_${userId}`, JSON.stringify(userData.fixedTransfers || []));
+                            // 匯入日期記事
+                            if (userData.dateNotes !== undefined) {
+                                localStorage.setItem(`${STORAGE_KEY_DATE_NOTES}_${userId}`, JSON.stringify(userData.dateNotes || {}));
+                            }
+                            // 匯入資產歷史快照
+                            if (userData.assetHistory !== undefined) {
+                                localStorage.setItem(`${STORAGE_KEY_ASSET_HISTORY}_${userId}`, JSON.stringify(userData.assetHistory || {}));
+                            }
+                        });
+
                     } else if (d.data && d.settings) {
-                        primaryUserId = currentUserId;
+                        progressBar.style.width = '90%';
+                        progressText.innerText = '寫入資料中...';
+                        primaryUserId = currentUserId; 
+                        localStorage.setItem(`${STORAGE_KEY_DATA}_${primaryUserId}`, JSON.stringify(d.data));
+                        localStorage.setItem(`${STORAGE_KEY_SETTINGS}_${primaryUserId}`, JSON.stringify(d.settings));
+                    } else {
+                        throw new Error("檔案格式錯誤");
                     }
 
                     if (window.firebaseUserLoggedIn) {
@@ -7915,6 +7764,22 @@
         } else {
             document.getElementById('dCostPnl').style.display = 'none';
         }
+        const dDivBlock = document.getElementById('dDividendBlock');
+        if (dDivBlock) {
+            if (currentDetailAcc.type === 'twstock' && currentDetailAcc.symbol) {
+                const divInfo = twDividendMap[(currentDetailAcc.symbol || '').toString().trim()];
+                if (divInfo && divInfo.cashDiv > 0) {
+                    const estDiv = divInfo.cashDiv * (currentDetailAcc.balance || 0);
+                    dDivBlock.style.display = 'block';
+                    document.getElementById('dDividendAmount').innerText = 'NT$ ' + (estDiv >= 0 ? estDiv.toLocaleString() : '0');
+                    document.getElementById('dDividendDate').innerText = divInfo.dateStr || '-';
+                } else {
+                    dDivBlock.style.display = 'none';
+                }
+            } else {
+                dDivBlock.style.display = 'none';
+            }
+        }
         const txList = document.getElementById('detailTxList'); txList.innerHTML = '';
         if (currentDetailAcc.transactions && currentDetailAcc.transactions.length > 0) {
             currentDetailAcc.transactions.forEach((tx, index) => {
@@ -8732,6 +8597,15 @@
                 await new Promise(r => setTimeout(r, 150));
             } catch(e) {
                 console.error(`Failed to refresh crypto info for ${acc.symbol}:`, e);
+            }
+        }
+        
+        // 若有台股帳戶，一併更新除權除息資料
+        if(twstockAccounts.length > 0) {
+            try {
+                await loadTwDividendData();
+            } catch(e) {
+                console.error('Failed to refresh dividend data:', e);
             }
         }
         
@@ -9580,9 +9454,12 @@
                 } else {
                     iconHtml = `<div class="item-icon ${g.s}"><i class="fas ${g.i}"></i></div>`;
                 }
+                const symForDiv = (acc.symbol || '').toString().trim();
+                const hasDiv = acc.type === 'twstock' && twDividendMap[symForDiv] && twDividendMap[symForDiv].cashDiv > 0;
+                const divClass = hasDiv ? ' twstock-has-dividend' : '';
                  // 美股、台股、加密貨幣使用新佈局：金額已內嵌在 item-name-row 中，不需要 item-amount-wrapper
                  if(acc.type === 'stock' || acc.type === 'twstock' || acc.type === 'crypto') {
-                     html += `<div class="list-item ${itemHidden ? 'item-hidden' : ''}" ${clk} data-id="${acc.id}">${iconHtml}<div class="item-content">${htmlContent}</div></div>`;
+                     html += `<div class="list-item${divClass} ${itemHidden ? 'item-hidden' : ''}" ${clk} data-id="${acc.id}">${iconHtml}<div class="item-content">${htmlContent}</div></div>`;
                 } else {
                     // 其他分類（錢包等）：眼睛按鈕放在金額右邊
                     html += `<div class="list-item ${itemHidden ? 'item-hidden' : ''}" ${clk} data-id="${acc.id}">${iconHtml}<div class="item-content">${htmlContent}</div><div class="item-amount-wrapper"><div class="item-amount"><div class="amount-val-wrapper"><div class="amount-val item-numbers ${color}">${formatAmount(val)}</div><button class="item-eye-btn" onclick="event.stopPropagation(); toggleItemNumbers(${acc.id})" title="隱藏/顯示數字"><i class="fas ${eyeIcon}"></i></button></div>${pnlHtml}</div></div></div>`;
@@ -9978,8 +9855,8 @@
         if(settings.apiKey||settings.fugleKey) fetchPrices();
         setInterval(() => { if(isSorting) return; refreshAllData(false); }, 30000);
         
-        // 註冊 Service Worker（支援背景執行）
-        if('serviceWorker' in navigator) {
+        // 註冊 Service Worker（支援背景執行，僅在 HTTPS 或 localhost 下註冊）
+        if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
             navigator.serviceWorker.register('./service-worker.js')
                 .then((registration) => {
                     console.log('Service Worker 註冊成功:', registration.scope);
@@ -10017,14 +9894,7 @@
             // Google Drive：每次開啟 App 自動備份一次
             if(settings.cloudBackupToken === 'google_drive' && settings.driveAccessToken) {
                 setTimeout(() => {
-                    performCloudBackup()
-                        .then(() => showBackupToast('已自動備份'))
-                        .catch(err => {
-                            console.warn('Google Drive 備份失敗:', err);
-                            if (err && err.message && (err.message.includes('過期') || err.message.includes('重新登入'))) {
-                                showBackupToast('備份失敗，請重新登入');
-                            }
-                        });
+                    performCloudBackup().catch(err => console.warn('Google Drive 備份失敗:', err));
                 }, 2000);
             }
         }
@@ -10079,6 +9949,7 @@
                     if(!localStorage.getItem('monee_tutorial_seen') && typeof openTutorialAssets === 'function') {
                         openTutorialAssets();
                     }
+                    loadTwDividendData().then(() => { if(typeof renderAssets === 'function') renderAssets(); });
                 }, 300); // 等待淡出動畫完成
             }, 1000); // 等待 Monee 字樣動畫完成（1s 動畫）
         }
@@ -17428,7 +17299,11 @@
         }, 100);
     });
 
-    init();
+    if (document.readyState === 'complete') {
+        init();
+    } else {
+        window.addEventListener('load', init);
+    }
 </script>
 
 </body>
